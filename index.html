@@ -59,6 +59,14 @@ body.tablet-mode #kb-grid button { min-height: 52px !important; font-size: 18px 
 body.tablet-mode .img-grid-item { min-height: 110px !important; }
 body.tablet-mode .img-grid-item img { width: 80px !important; height: 80px !important; }
 body.tablet-mode .img-grid-item span, body.tablet-mode .img-grid-item div { font-size: 18px !important; }
+/* Immagini schermata principale e sotto-categoria */
+body.tablet-mode .img-grid { grid-template-columns: 1fr 1fr 1fr !important; gap: 20px !important; }
+body.tablet-mode .img-grid.sub { grid-template-columns: 1fr 1fr !important; gap: 20px !important; }
+body.tablet-mode .img-btn { padding: 20px !important; border-radius: 16px !important; min-height: 120px !important; }
+body.tablet-mode .img-btn img, body.tablet-mode .img-btn svg { width: 80px !important; height: 80px !important; }
+body.tablet-mode .img-btn .img-label { font-size: 20px !important; }
+/* Scroll impostazioni in tablet */
+body.tablet-mode #screen-settings { overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; max-height: 100vh !important; }
 body.tablet-mode .download-btn { font-size: 12px !important; padding: 6px 12px !important; }
 body.tablet-mode .settings-btn, body.tablet-mode .export-btn { font-size: 12px !important; padding: 6px 12px !important; }
 body.tablet-mode .urgenze-bar { margin-top: 2rem !important; }
@@ -520,7 +528,7 @@ h1 { font-size: 18px; font-weight: 600; color: #333; margin-bottom: 0; line-heig
       <button class="top-btn dire home-scan-item" onclick="_sbloccoAudio();showSub('dire')">
         <img src="" id="img-dire-btn" style="width:48px;height:48px;object-fit:contain;display:block;margin:0 auto 4px;"><span>Voglio dire</span>
       </button>
-      <button class="top-btn immagini home-scan-item" onclick="_sbloccoAudio();apriImmagini()">🖼️ Immagini</button>
+      <button class="top-btn immagini home-scan-item" onclick="_sbloccoAudio();apriImmagini()">🖼️ Scelta rapida</button>
     </div>
     <div id="sub-fare" class="category-grid" style="display:none">
       <button class="cat-btn" onclick="startCategory('corpo')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>Corpo</button>
@@ -1264,7 +1272,7 @@ h1 { font-size: 18px; font-weight: 600; color: #333; margin-bottom: 0; line-heig
 
   <!-- SCHERMATA IMMAGINI: 6 CATEGORIE PRINCIPALI -->
   <div id="screen-immagini" class="screen">
-    <h2 style="margin:10px 0;">🖼️ Immagini</h2>
+    <h2 style="margin:10px 0;">🖼️ Scelta rapida</h2>
     <div class="img-grid" id="img-grid-principale"></div>
     <button class="back-btn img-scan-back" onclick="goBack()" style="margin-top:8px;">← Indietro</button>
     <div id="area-conferma-scan-img" style="display:none;margin-top:14px;">
@@ -5395,6 +5403,8 @@ document.addEventListener('touchmove', function(e) {
   if (_deviceMode !== 'tablet') return;
   var el = e.target;
   while (el && el !== document.body) {
+    // Permetti scroll in impostazioni e in qualsiasi contenitore scrollabile
+    if (el.id === 'screen-settings' || el.id === 'app') return;
     var style = window.getComputedStyle(el);
     if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
       if (el.scrollHeight > el.clientHeight) return;
@@ -5435,7 +5445,7 @@ if ('serviceWorker' in navigator) {
   // Forza aggiornamento: cancella vecchie cache e registra nuovo SW
   if (navigator.serviceWorker.controller) {
     caches.keys().then(function(ks) {
-      ks.forEach(function(k) { if (k !== 'claudio-aac-v15') caches.delete(k); });
+      ks.forEach(function(k) { if (k !== 'claudio-aac-v16') caches.delete(k); });
     });
   }
   navigator.serviceWorker.register('./sw.js').then(function(reg) {
