@@ -1642,7 +1642,7 @@ let _areaConfermaScanAttiva = 'area-conferma-scan';
 function confermaScanCategoria() {
   var idxFrozen = _scanIdx;
   var elFrozen = _scanCats[idxFrozen];
-  // Ferma scansione ma NON nascondere overlay ancora
+  // Ferma scansione ma mantieni overlay visibile — la nuova scansione lo aggiornerà
   _scanSessionId++;
   if (_scanTimer) { clearInterval(_scanTimer); clearTimeout(_scanTimer); _scanTimer = null; }
   _scanCats.forEach(function(b) { b.classList.remove('scan-cat'); b.classList.remove('scan-attivo-tast'); });
@@ -1650,14 +1650,9 @@ function confermaScanCategoria() {
   _leggiTestoAttivo = false;
   var area = document.getElementById(_areaConfermaScanAttiva);
   if (area) area.style.display = 'none';
-  // Esegui click dopo breve delay, poi nascondi overlay
+  // Esegui click dopo breve delay
   setTimeout(function() {
     if (elFrozen) elFrozen.click();
-    // Nascondi overlay dopo che la nuova schermata è visibile
-    setTimeout(function() {
-      var overlay = document.getElementById('scan-overlay');
-      if (overlay) overlay.style.display = 'none';
-    }, 200);
   }, 100);
 }
 
@@ -5445,7 +5440,7 @@ if ('serviceWorker' in navigator) {
   // Forza aggiornamento: cancella vecchie cache e registra nuovo SW
   if (navigator.serviceWorker.controller) {
     caches.keys().then(function(ks) {
-      ks.forEach(function(k) { if (k !== 'claudio-aac-v16') caches.delete(k); });
+      ks.forEach(function(k) { if (k !== 'claudio-aac-v17') caches.delete(k); });
     });
   }
   navigator.serviceWorker.register('./sw.js').then(function(reg) {
