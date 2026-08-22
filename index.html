@@ -498,6 +498,7 @@ h1 { font-size: 18px; font-weight: 600; color: #333; margin-bottom: 0; line-heig
   <div id="scan-overlay" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:500;
        background:rgba(255,255,255,0.97);flex-direction:column;align-items:center;justify-content:center;
        cursor:pointer;touch-action:manipulation;user-select:none;padding:2rem;">
+    <div id="scan-overlay-context" style="position:fixed;top:20px;left:20px;right:20px;font-size:18px;color:#999;text-align:center;line-height:1.4;"></div>
     <div id="scan-overlay-icon" style="font-size:120px;margin-bottom:24px;line-height:1;"></div>
     <div id="scan-overlay-text" style="font-size:52px;font-weight:700;color:#333;text-align:center;line-height:1.3;"></div>
     <div style="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);font-size:16px;color:#bbb;">Tocca per confermare</div>
@@ -1568,34 +1569,52 @@ function _evidenziaCat(idx) {
       if (overlay) {
         var el = _scanCats[idx];
         var icon = '';
-        // Cerca immagine (top buttons hanno img)
+        var label = '';
+        var context = '';
+
+        // 1. Cerca immagine (top buttons)
         var imgEl = el.querySelector('img');
-        if (imgEl) {
-          icon = '<img src="' + imgEl.src + '" style="width:140px;height:140px;">';
-        }
-        // Cerca emoji nel .cat-icon
+        if (imgEl) icon = '<img src="' + imgEl.src + '" style="width:140px;height:140px;border-radius:16px;">';
+        // 2. Cerca emoji in .cat-icon
         var iconEl = el.querySelector('.cat-icon');
-        if (iconEl && iconEl.textContent.trim()) {
-          icon = iconEl.textContent.trim();
-        }
-        // Cerca SVG icon
+        if (iconEl && iconEl.textContent.trim()) icon = iconEl.textContent.trim();
+        // 3. SVG: estrai emoji dal testo
         var svgEl = el.querySelector('svg');
         if (!icon && svgEl) {
-          // Usa il testo del bottone come icona emoji basata sul contenuto
           var t = el.textContent.trim();
-          // Prova a estrarre emoji dal testo
           var emojiRe = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}\u{FE00}-\u{FEFF}\u{200D}\u{20E3}✓✕✏️⌨️🚽📞🎤⚙️🖼️🏠←🫀😴🍕📺🎵🚶🗓️🌡️😊👥⚽📋🎂💡😇]+/gu;
           var emojiMatch = t.match(emojiRe);
           if (emojiMatch) icon = emojiMatch[0];
         }
-        // Testo leggibile
-        var label = _testoLeggibile(el) || el.textContent.trim();
-        // Rimuovi emoji dal label se presente nell'icona
-        if (icon && icon.length <= 4) {
-          label = label.replace(icon, '').trim();
+        // 4. SÌ/NO: usa emoji della domanda corrente
+        if (!icon && (el.classList.contains('btn-si') || el.classList.contains('btn-no'))) {
+          var qEmoji = document.getElementById('question-emoji');
+          if (qEmoji && qEmoji.textContent.trim()) icon = qEmoji.textContent.trim();
         }
+        // 5. Bottoni conferma/annulla
+        if (el.classList.contains('btn-conferma')) icon = '✅';
+        if (el.classList.contains('btn-stop-scan')) icon = '❌';
+
+        // Testo leggibile
+        label = _testoLeggibile(el) || el.textContent.trim();
+        if (icon && icon.length <= 4) label = label.replace(icon, '').trim();
+
+        // Contesto: domanda corrente per SÌ/NO e tree items
+        var qText = document.getElementById('question-text');
+        if (qText && qText.textContent.trim() && (el.classList.contains('btn-si') || el.classList.contains('btn-no') || el.classList.contains('tree-scan-item'))) {
+          context = qText.textContent.trim();
+        }
+        // Contesto: progress text
+        var progText = document.getElementById('progress-text');
+        if (progText && progText.textContent.trim()) {
+          if (context) context = progText.textContent.trim() + '\n' + context;
+          else context = progText.textContent.trim();
+        }
+
         document.getElementById('scan-overlay-icon').innerHTML = icon;
         document.getElementById('scan-overlay-text').textContent = label;
+        var ctxEl = document.getElementById('scan-overlay-context');
+        if (ctxEl) ctxEl.textContent = context;
         overlay.style.display = 'flex';
       }
     }
@@ -1620,6 +1639,15 @@ function _nascondiOverlay() {
   var ov = document.getElementById('scan-overlay');
   if (ov) {
     function _handleOverlayClick(e) {
+      // Ignora se il tocco è su Home o Impostazioni (angoli in basso)
+      var tx = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+      var ty = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+      var ww = window.innerWidth;
+      var wh = window.innerHeight;
+      // Angolo basso-sinistra (Home) o basso-destra (Impostazioni): area 100x100px
+      if (ty > wh - 110) {
+        if (tx < 110 || tx > ww - 110) return; // Lascia passare ai bottoni fissi
+      }
       // Sblocca audio Safari al primo tocco
       if ('speechSynthesis' in window && !window._safariAudioUnlocked) {
         var u = new SpeechSynthesisUtterance('');
@@ -1631,6 +1659,11 @@ function _nascondiOverlay() {
     }
     ov.addEventListener('click', _handleOverlayClick);
     ov.addEventListener('touchstart', function(e) {
+      var tx = e.touches && e.touches[0] ? e.touches[0].clientX : 0;
+      var ty = e.touches && e.touches[0] ? e.touches[0].clientY : 0;
+      var ww = window.innerWidth;
+      var wh = window.innerHeight;
+      if (ty > wh - 110 && (tx < 110 || tx > ww - 110)) return; // Lascia passare
       e.preventDefault();
       _handleOverlayClick(e);
     }, { passive: false });
@@ -5440,7 +5473,7 @@ if ('serviceWorker' in navigator) {
   // Forza aggiornamento: cancella vecchie cache e registra nuovo SW
   if (navigator.serviceWorker.controller) {
     caches.keys().then(function(ks) {
-      ks.forEach(function(k) { if (k !== 'claudio-aac-v17') caches.delete(k); });
+      ks.forEach(function(k) { if (k !== 'claudio-aac-v18') caches.delete(k); });
     });
   }
   navigator.serviceWorker.register('./sw.js').then(function(reg) {
