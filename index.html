@@ -1679,6 +1679,7 @@ function fermaScan() {
   _scanCats.forEach(function(b) { b.classList.remove('scan-cat'); b.classList.remove('scan-attivo-tast'); });
   _leggiTestoInCorso = false;
   _leggiTestoAttivo = false;
+  _nascondiOverlay(); // nasconde l'overlay tablet al termine di ogni scan
 }
 
 function _nascondiOverlay() {
@@ -1687,14 +1688,24 @@ function _nascondiOverlay() {
 }
 
 // Overlay: tocco per confermare
+var _overlayToccoInCorso = false; // debounce: evita doppio trigger touch+click
 function _overlayTocco(e) {
+  if (_overlayToccoInCorso) return;
+  _overlayToccoInCorso = true;
   if ('speechSynthesis' in window && !window._safariAudioUnlocked) {
     var u = new SpeechSynthesisUtterance('');
     u.volume = 0;
     window.speechSynthesis.speak(u);
     window._safariAudioUnlocked = true;
   }
-  confermaScanCategoria();
+  // Feedback visivo: flash verde per 130ms prima di confermare
+  var overlay = document.getElementById('scan-overlay');
+  if (overlay) overlay.style.background = 'rgba(39,174,96,0.28)';
+  setTimeout(function() {
+    if (overlay) overlay.style.background = 'rgba(255,255,255,0.97)';
+    _overlayToccoInCorso = false;
+    confermaScanCategoria();
+  }, 130);
 }
 function _overlayToccoStart(e) {
   e.preventDefault();
