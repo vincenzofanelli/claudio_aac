@@ -85,13 +85,13 @@ h1 { font-size: 18px; font-weight: 600; color: #333; margin-bottom: 0; line-heig
 .top-btn.immagini { background: #E8FBE9; color: #1a8c3c; }
 .category-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 1rem; }
 .cat-btn { background: #fafafa; border: 1px solid #e0e0e0; border-radius: 14px; padding: 12px 14px; font-size: 14px; font-weight: 500; color: #444; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px; transition: background 0.15s, transform 0.1s; }
-.cat-btn:active { background: #27ae60; color: #fff; transform: scale(0.97); }
+.cat-btn:active { background: #f1c40f; color: #333; transform: scale(0.97); }
 .cat-btn svg { color: #555; flex-shrink: 0; }
 .cat-icon { display: none; }
 .cat-icon { font-size: 20px; display: block; margin-bottom: 5px; }
 .yn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 1.5rem; }
 .btn-si { background: #EAF3DE; border: 2px solid #639922; border-radius: 12px; padding: 1.5rem; font-size: 28px; font-weight: 500; color: #3B6D11; cursor: pointer; transition: background 0.15s, transform 0.1s; }
-.btn-si:active { background: #27ae60; color: #fff; transform: scale(0.95); }
+.btn-si:active { background: #f1c40f; color: #333; transform: scale(0.95); }
 .btn-no { background: #FCEBEB; border: 2px solid #E24B4A; border-radius: 12px; padding: 1.5rem; font-size: 28px; font-weight: 500; color: #A32D2D; cursor: pointer; transition: background 0.15s, transform 0.1s; }
 .btn-no:active { background: #e74c3c; color: #fff; transform: scale(0.95); }
 .result-box { background: #f8f8f8; border: 2px solid #e0e0e0; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; text-align: center; }
@@ -1749,7 +1749,7 @@ function _overlayTocco(e) {
   var oNext = document.getElementById('scan-overlay-next');
   if (pb) { pb.style.transition = 'none'; pb.style.width = '100%'; } // ferma barra
   if (overlay) overlay.style.background = '#f1c40f';
-  if (oIcon) oIcon.innerHTML = '✅';
+  if (oIcon) oIcon.innerHTML = '';
   if (oText) oText.textContent = '';
   if (oNext) oNext.textContent = '';
   setTimeout(function() {
@@ -2721,26 +2721,32 @@ function renderQuestion() {
   }
 }
 
+var _answerInCorso = false;
 function answer(isYes) {
+  if (_answerInCorso) return; // blocca tocchi multipli accidentali
+  _answerInCorso = true;
   fermaScan(true); // ferma scan ma mantieni overlay visibile fino al cambio schermata
-  // Feedback visivo: giallo = scelta recepita (non verde, per non confondere con il bottone SÌ)
-  var btn = document.getElementById(isYes ? 'btn-si' : 'btn-no');
-  if (btn) {
-    btn.style.transition = 'background 0.1s';
-    btn.style.background = '#f1c40f';
-    btn.style.color = '#333';
+
+  // Feedback visivo: in modalità cellulare (overlay non visibile) flash giallo su tutto lo schermo
+  if (_deviceMode !== 'tablet') {
+    var scrTree = document.getElementById('screen-tree');
+    if (scrTree) {
+      scrTree.style.transition = 'background 0.05s';
+      scrTree.style.background = '#f1c40f';
+      setTimeout(function() { scrTree.style.background = ''; scrTree.style.transition = ''; }, 280);
+    }
   }
+
   currentPath.push(isYes ? 'si' : 'no');
   var next = isYes ? currentNode.si : currentNode.no;
   stepCount++;
 
   function navigate() {
-    if (btn) { btn.style.background = ''; btn.style.color = ''; }
+    _answerInCorso = false;
     processNode(next);
   }
 
-  // Aspetta la fine del TTS in corso prima di passare alla schermata successiva:
-  // il bottone resta giallo finché la voce non termina la frase, dando conferma visiva.
+  // Aspetta la fine del TTS in corso prima di passare alla schermata successiva
   var synth = ('speechSynthesis' in window) ? window.speechSynthesis : null;
   if (synth && synth.speaking) {
     var deadline = Date.now() + 8000; // sicurezza: max 8s
@@ -2749,7 +2755,7 @@ function answer(isYes) {
       else { setTimeout(poll, 80); }
     })();
   } else {
-    setTimeout(navigate, 300); // pausa minima per mostrare il feedback
+    setTimeout(navigate, 300);
   }
 }
 
