@@ -512,6 +512,11 @@ h1 { font-size: 18px; font-weight: 600; color: #333; margin-bottom: 0; line-heig
     </div>
   </div>
 
+  <!-- Frase risultato: mostrata durante TTS finale, leggibile anche con audio disattivato -->
+  <div id="result-display" style="display:none;position:fixed;bottom:120px;left:16px;right:16px;z-index:700;background:rgba(26,86,204,0.95);color:#fff;border-radius:16px;padding:20px 24px;font-size:22px;font-weight:600;text-align:center;line-height:1.4;box-shadow:0 4px 24px rgba(0,0,0,0.3);">
+    <div id="result-display-text"></div>
+  </div>
+
   <!-- BOTTONI FISSI TABLET: visibili quando overlay è nascosto -->
   <div id="tablet-home-fixed" style="display:none;position:fixed;bottom:20px;left:20px;z-index:600;">
     <button onclick="fermaScan();if(window.speechSynthesis)window.speechSynthesis.cancel();goHome();" style="width:80px;height:80px;border-radius:50%;background:#1a56cc;color:white;border:none;font-size:32px;box-shadow:0 4px 12px rgba(0,0,0,0.3);cursor:pointer;touch-action:manipulation;">🏠</button>
@@ -632,8 +637,8 @@ h1 { font-size: 18px; font-weight: 600; color: #333; margin-bottom: 0; line-heig
     <div id="question-emoji" style="font-size:64px;text-align:center;margin-bottom:0.5rem;line-height:1;display:none;"></div>
     <div class="question" id="question-text"></div>
     <div class="yn-row">
-      <button class="btn-si tree-scan-item" id="btn-si" onclick="answer(true)">SÌ</button>
-      <button class="btn-no tree-scan-item" id="btn-no" onclick="answer(false)">NO</button>
+      <button class="btn-si tree-scan-item" id="btn-si" onclick="answer(true)">😊 SÌ</button>
+      <button class="btn-no tree-scan-item" id="btn-no" onclick="answer(false)">😢 NO</button>
     </div>
     <div style="margin-top:8px;">
       <button class="back-btn tree-scan-item" id="back-tree-btn" onclick="goBack()">← Indietro</button>
@@ -1698,14 +1703,14 @@ function _overlayTocco(e) {
     window.speechSynthesis.speak(u);
     window._safariAudioUnlocked = true;
   }
-  // Feedback visivo: flash verde per 130ms prima di confermare
+  // Feedback visivo: flash verde per 350ms prima di confermare
   var overlay = document.getElementById('scan-overlay');
   if (overlay) overlay.style.background = 'rgba(39,174,96,0.28)';
   setTimeout(function() {
     if (overlay) overlay.style.background = 'rgba(255,255,255,0.97)';
     _overlayToccoInCorso = false;
     confermaScanCategoria();
-  }, 130);
+  }, 350);
 }
 function _overlayToccoStart(e) {
   e.preventDefault();
@@ -2042,6 +2047,11 @@ function goHome() {
   document.getElementById('sub-dire').style.display = 'none';
   currentNode = null; stepCount = 0; currentPath = [];
   pendingNamedList = null; pendingFantaRuolo = null;
+  // Pulisce i testi di percorso/domanda residui nell'overlay
+  var pt = document.getElementById('progress-text'); if (pt) pt.textContent = '';
+  var qt = document.getElementById('question-text'); if (qt) qt.textContent = '';
+  // Nasconde il banner della frase risultato
+  var rd = document.getElementById('result-display'); if (rd) rd.style.display = 'none';
   goalSet = false;
   renderStats();
   // Avvia lo scan sui 3 bottoni principali (Voglio fare / Voglio dire / Immagini)
@@ -2660,22 +2670,34 @@ function renderQuestion() {
 
 function answer(isYes) {
   fermaScan(); // ferma subito la scansione corrente
-  // Feedback visivo: colora il bottone premuto
+  // Feedback visivo: giallo = scelta recepita (non verde, per non confondere con il bottone SÌ)
   var btn = document.getElementById(isYes ? 'btn-si' : 'btn-no');
   if (btn) {
     btn.style.transition = 'background 0.1s';
-    btn.style.background = '#27ae60';
-    btn.style.color = '#fff';
-    setTimeout(function() {
-      btn.style.background = '';
-      btn.style.color = '';
-    }, 400);
+    btn.style.background = '#f1c40f';
+    btn.style.color = '#333';
   }
   currentPath.push(isYes ? 'si' : 'no');
-  const next = isYes ? currentNode.si : currentNode.no;
+  var next = isYes ? currentNode.si : currentNode.no;
   stepCount++;
-  // Breve pausa per mostrare il feedback prima della prossima domanda
-  setTimeout(function() { processNode(next); }, 300);
+
+  function navigate() {
+    if (btn) { btn.style.background = ''; btn.style.color = ''; }
+    processNode(next);
+  }
+
+  // Aspetta la fine del TTS in corso prima di passare alla schermata successiva:
+  // il bottone resta giallo finché la voce non termina la frase, dando conferma visiva.
+  var synth = ('speechSynthesis' in window) ? window.speechSynthesis : null;
+  if (synth && synth.speaking) {
+    var deadline = Date.now() + 8000; // sicurezza: max 8s
+    (function poll() {
+      if (!synth.speaking || Date.now() > deadline) { navigate(); }
+      else { setTimeout(poll, 80); }
+    })();
+  } else {
+    setTimeout(navigate, 300); // pausa minima per mostrare il feedback
+  }
 }
 
 function processNode(node) {
@@ -2879,6 +2901,10 @@ function parlaETornaHome(testo) {
   _leggiTestoAttivo = true; // blocca BU immediatamente, prima di qualsiasi reset
   fermaScan();
   fermaScanTast();
+  // Mostra la frase finale a schermo: leggibile anche con audio disattivato
+  var rd = document.getElementById('result-display');
+  var rdt = document.getElementById('result-display-text');
+  if (rd && rdt) { rdt.textContent = testo; rd.style.display = 'block'; }
   _leggiTesto(testo, goHome);
 }
 
