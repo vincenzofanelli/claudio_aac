@@ -472,8 +472,7 @@ h1 { font-size: 18px; font-weight: 600; color: #333; margin-bottom: 0; line-heig
 .img-btn.scan-attivo-tast {
   outline: 4px solid #f1c40f;
   box-shadow: 0 0 0 3px rgba(241,196,15,0.4), 0 0 16px rgba(241,196,15,0.3);
-  transform: scale(1.05);
-  z-index: 10; position: relative;
+  /* NO transform: scale → evita reflow sull'intera grid ad ogni passo di scan */
 }
 .img-back-btn {
   width: 100%; padding: 12px; margin-top: 14px; background: #fafafa;
@@ -502,6 +501,12 @@ h1 { font-size: 18px; font-weight: 600; color: #333; margin-bottom: 0; line-heig
     <div id="scan-overlay-context" style="position:fixed;top:20px;left:20px;right:20px;font-size:20px;color:#000;text-align:center;line-height:1.4;font-weight:500;"></div>
     <div id="scan-overlay-icon" style="font-size:120px;margin-bottom:24px;line-height:1;"></div>
     <div id="scan-overlay-text" style="font-size:52px;font-weight:700;color:#333;text-align:center;line-height:1.3;"></div>
+    <!-- Hint: elemento successivo in coda -->
+    <div id="scan-overlay-next" style="position:fixed;bottom:110px;left:0;right:0;text-align:center;font-size:16px;color:#888;font-weight:500;letter-spacing:0.02em;padding:0 20px;"></div>
+    <!-- Barra di avanzamento temporale: mostra quant'è rimasto sul passo corrente -->
+    <div id="scan-overlay-progress-track" style="position:fixed;bottom:96px;left:0;right:0;height:6px;background:rgba(0,0,0,0.08);">
+      <div id="scan-overlay-progress" style="height:100%;width:0;background:#f1c40f;"></div>
+    </div>
     <div style="position:fixed;bottom:20px;left:20px;">
       <button id="overlay-btn-home" onclick="event.stopPropagation();fermaScan();if(window.speechSynthesis)window.speechSynthesis.cancel();goHome();" ontouchstart="event.stopPropagation();"
         style="width:80px;height:80px;border-radius:50%;background:#1a56cc;color:white;border:none;font-size:32px;box-shadow:0 4px 12px rgba(0,0,0,0.3);cursor:pointer;touch-action:manipulation;">🏠</button>
@@ -1479,7 +1484,7 @@ function showSub(type) {
 let _scanTimer = null;
 let _scanIdx   = 0;
 let _scanCats  = [];
-let _scanMs = (function(){ var s = loadSettings(); return s.scanMsCategorie || 2500; })();
+let _scanMs = (function(){ var s = loadSettings(); return s.scanMsCategorie || 3500; })();
 let _scanSessionId = 0; // incrementato ad ogni avvio: invalida cicli di lettura vocale precedenti
 let _scanCicliCompleti = 0; // conta cicli completi senza selezione, torna home dopo 5
 
@@ -1606,10 +1611,16 @@ var _EMOJI_MAP = {
 };
 
 function _evidenziaCat(idx) {
-  _scanCats.forEach(function(b) { b.classList.remove('scan-cat'); b.classList.remove('scan-attivo-tast'); });
+  // In modalità tablet l'overlay copre tutto: non serve aggiungere/rimuovere classi CSS
+  // sugli elementi sottostanti (risparmia reflow e non causa jank nella griglia immagini).
+  if (_deviceMode !== 'tablet') {
+    _scanCats.forEach(function(b) { b.classList.remove('scan-cat'); b.classList.remove('scan-attivo-tast'); });
+    if (_scanCats[idx]) {
+      if (_scanCats[idx].classList.contains('img-btn')) _scanCats[idx].classList.add('scan-attivo-tast');
+      else _scanCats[idx].classList.add('scan-cat');
+    }
+  }
   if (_scanCats[idx]) {
-    if (_scanCats[idx].classList.contains('img-btn')) _scanCats[idx].classList.add('scan-attivo-tast');
-    else _scanCats[idx].classList.add('scan-cat');
     // Overlay tablet
     if (_deviceMode === 'tablet') {
       var overlay = document.getElementById('scan-overlay');
@@ -1670,6 +1681,27 @@ function _evidenziaCat(idx) {
         document.getElementById('scan-overlay-text').textContent = label;
         var ctxEl = document.getElementById('scan-overlay-context');
         if (ctxEl) ctxEl.textContent = context;
+
+        // Hint "prossimo": mostra il label del prossimo elemento in coda
+        var nextEl = document.getElementById('scan-overlay-next');
+        if (nextEl && _scanCats.length > 1) {
+          var nextIdx = (idx + 1) % _scanCats.length;
+          var nextLabel = _testoLeggibile(_scanCats[nextIdx]) || _scanCats[nextIdx].textContent.trim();
+          nextEl.textContent = nextLabel ? 'Prossimo: ' + nextLabel : '';
+        } else if (nextEl) {
+          nextEl.textContent = '';
+        }
+
+        // Barra progresso: reset e riparti da 0 → 100% in _scanMs millisecondi
+        var pb = document.getElementById('scan-overlay-progress');
+        if (pb) {
+          pb.style.transition = 'none';
+          pb.style.width = '0%';
+          pb.getBoundingClientRect(); // forza reflow per ripartire la transizione
+          pb.style.transition = 'width ' + _scanMs + 'ms linear';
+          pb.style.width = '100%';
+        }
+
         overlay.style.display = 'flex';
       }
     }
@@ -1689,6 +1721,11 @@ function fermaScan(mantieniOverlay) {
 function _nascondiOverlay() {
   var overlay = document.getElementById('scan-overlay');
   if (overlay) overlay.style.display = 'none';
+  // Reset progress bar e hint quando l'overlay si chiude
+  var pb = document.getElementById('scan-overlay-progress');
+  if (pb) { pb.style.transition = 'none'; pb.style.width = '0%'; }
+  var nextEl = document.getElementById('scan-overlay-next');
+  if (nextEl) nextEl.textContent = '';
 }
 
 // Overlay: tocco per confermare
@@ -1703,14 +1740,22 @@ function _overlayTocco(e) {
     window.speechSynthesis.speak(u);
     window._safariAudioUnlocked = true;
   }
-  // Feedback visivo: flash verde per 350ms prima di confermare
+  // Feedback IMMEDIATO e visibile: giallo pieno + ✅ al posto dell'icona corrente
   var overlay = document.getElementById('scan-overlay');
-  if (overlay) overlay.style.background = 'rgba(39,174,96,0.28)';
+  var pb = document.getElementById('scan-overlay-progress');
+  var oIcon = document.getElementById('scan-overlay-icon');
+  var oText = document.getElementById('scan-overlay-text');
+  var oNext = document.getElementById('scan-overlay-next');
+  if (pb) { pb.style.transition = 'none'; pb.style.width = '100%'; } // ferma barra
+  if (overlay) overlay.style.background = '#f1c40f';
+  if (oIcon) oIcon.innerHTML = '✅';
+  if (oText) oText.textContent = '';
+  if (oNext) oNext.textContent = '';
   setTimeout(function() {
     if (overlay) overlay.style.background = 'rgba(255,255,255,0.97)';
     _overlayToccoInCorso = false;
     confermaScanCategoria();
-  }, 350);
+  }, 110); // 110ms: visibile ma senza latenza percepita
 }
 function _overlayToccoStart(e) {
   e.preventDefault();
@@ -3085,7 +3130,7 @@ function saveScanTiming() {
 
 function initScanTimingSliders() {
   var s = loadSettings();
-  var cat  = s.scanMsCategorie || 2500;
+  var cat  = s.scanMsCategorie || 3500;
   var tast = s.scanMsTastiera  || 3000;
   var slCat  = document.getElementById('slider-scan-cat');
   var slTast = document.getElementById('slider-scan-tast');
