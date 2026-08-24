@@ -1676,13 +1676,14 @@ function _evidenziaCat(idx) {
   }
 }
 
-function fermaScan() {
+function fermaScan(mantieniOverlay) {
   _scanSessionId++;
   if (_scanTimer) { clearInterval(_scanTimer); clearTimeout(_scanTimer); _scanTimer = null; }
   _scanCats.forEach(function(b) { b.classList.remove('scan-cat'); b.classList.remove('scan-attivo-tast'); });
+  _scanCats = []; // evita click fantasma su elementi stantii
   _leggiTestoInCorso = false;
   _leggiTestoAttivo = false;
-  _nascondiOverlay(); // nasconde l'overlay tablet al termine di ogni scan
+  if (!mantieniOverlay) _nascondiOverlay();
 }
 
 function _nascondiOverlay() {
@@ -1694,6 +1695,7 @@ function _nascondiOverlay() {
 var _overlayToccoInCorso = false; // debounce: evita doppio trigger touch+click
 function _overlayTocco(e) {
   if (_overlayToccoInCorso) return;
+  if (_leggiTestoAttivo) return; // blocca tocco overlay durante lettura risultato
   _overlayToccoInCorso = true;
   if ('speechSynthesis' in window && !window._safariAudioUnlocked) {
     var u = new SpeechSynthesisUtterance('');
@@ -1724,6 +1726,7 @@ function confermaScanCategoria() {
   _scanSessionId++;
   if (_scanTimer) { clearInterval(_scanTimer); clearTimeout(_scanTimer); _scanTimer = null; }
   _scanCats.forEach(function(b) { b.classList.remove('scan-cat'); b.classList.remove('scan-attivo-tast'); });
+  _scanCats = []; // evita click fantasma su doppio tocco
   _leggiTestoInCorso = false;
   _leggiTestoAttivo = false;
   var area = document.getElementById(_areaConfermaScanAttiva);
@@ -2193,9 +2196,9 @@ function selezionaImmagine(idx) {
   if (!_imgCategoriaCorrente) return;
   var item = _imgCategoriaCorrente.sotto[idx];
   if (!item) return;
-  // Stesso fix di showResult: ferma ogni scan/lettura residua prima di parlare,
-  // altrimenti un ciclo precedente può cancellare la sintesi vocale a metà.
-  fermaScan();
+  // Ferma scan ma mantieni overlay: evita che la UI phone-mode compaia
+  // dietro l'overlay durante la lettura della frase risultato.
+  fermaScan(true);
   fermaScanTast();
   parlaETornaHome(item.frase);
 }
@@ -2667,7 +2670,7 @@ function renderQuestion() {
 }
 
 function answer(isYes) {
-  fermaScan(); // ferma subito la scansione corrente
+  fermaScan(true); // ferma scan ma mantieni overlay visibile fino al cambio schermata
   // Feedback visivo: giallo = scelta recepita (non verde, per non confondere con il bottone SÌ)
   var btn = document.getElementById(isYes ? 'btn-si' : 'btn-no');
   if (btn) {
@@ -2762,7 +2765,7 @@ function handleNamedList(node) {
 }
 
 function selectName(nome) {
-  fermaScan();
+  fermaScan(true); // mantieni overlay durante lettura risultato
   if (!pendingNamedList) return;
   if (nome === null) {
     currentPath.push('nessuno');
@@ -2832,7 +2835,7 @@ function showResult(text) {
   // se un ciclo di scan precedente è ancora attivo, la sua eventuale lettura
   // vocale può cancellare (speechSynthesis.cancel) la frase finale prima che
   // finisca di essere pronunciata.
-  fermaScan();
+  fermaScan(true); // mantieni overlay visibile durante la lettura del risultato
   fermaScanTast();
   // Parla la frase e torna alla home — non aprire la tastiera
   parlaETornaHome(text);
@@ -2897,12 +2900,20 @@ function _leggiTesto(testo, callback) {
 
 function parlaETornaHome(testo) {
   _leggiTestoAttivo = true; // blocca BU immediatamente, prima di qualsiasi reset
-  fermaScan();
+  fermaScan(true); // mantieni overlay visibile durante la lettura
   fermaScanTast();
   // Mostra la frase finale a schermo: leggibile anche con audio disattivato
   var rd = document.getElementById('result-display');
   var rdt = document.getElementById('result-display-text');
   if (rd && rdt) { rdt.textContent = testo; rd.style.display = 'block'; }
+  // In modalità tablet: aggiorna l'overlay per mostrare la frase risultato
+  // al posto dello stato di scan precedente (voce/icona dell'ultimo elemento scansionato)
+  var oIcon = document.getElementById('scan-overlay-icon');
+  var oText = document.getElementById('scan-overlay-text');
+  var oCtx  = document.getElementById('scan-overlay-context');
+  if (oIcon) oIcon.textContent = '💬';
+  if (oText) oText.textContent = '';
+  if (oCtx)  oCtx.textContent  = testo;
   _leggiTesto(testo, goHome);
 }
 
