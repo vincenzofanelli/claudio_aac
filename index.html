@@ -1638,15 +1638,13 @@ function _evidenziaCat(idx) {
             }
           }
         }
-        // 4. SÌ/NO: usa emoji della domanda corrente
+        // 4. SÌ/NO: icona fissa per riconoscimento immediato (modalità tablet)
         if (el.classList.contains('btn-si')) {
-          var qEmoji = document.getElementById('question-emoji');
-          icon = (qEmoji && qEmoji.textContent.trim()) || '✅';
+          icon = '😊';
           label = 'SÌ';
         }
         if (el.classList.contains('btn-no')) {
-          var qEmoji2 = document.getElementById('question-emoji');
-          icon = (qEmoji2 && qEmoji2.textContent.trim()) || '❌';
+          icon = '😢';
           label = 'NO';
         }
         // 5. Conferma/Annulla
