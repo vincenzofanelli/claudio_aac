@@ -482,6 +482,12 @@ h1 { font-size: 18px; font-weight: 600; color: #333; margin-bottom: 0; line-heig
 </style>
 </head>
 <body>
+
+<!-- Banner aggiornamento SW -->
+<div id="sw-update-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#1a56cc;color:white;text-align:center;padding:10px 16px;font-size:15px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.3);">
+  🔄 Aggiornamento disponibile — <button onclick="location.reload()" style="margin-left:10px;padding:4px 14px;background:white;color:#1a56cc;border:none;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;">Ricarica ora</button>
+</div>
+
 <div id="app">
 
   <!-- INDICATORE GLOBALE MICROFONO: visibile su ogni schermata quando l'ascolto BU è attivo -->
@@ -1079,6 +1085,7 @@ h1 { font-size: 18px; font-weight: 600; color: #333; margin-bottom: 0; line-heig
     <button onclick="_importaImpostazioni()" style="flex:1;padding:10px 14px;background:#1a56cc;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">📂 Ripristina backup impostazioni</button>
   </div>
   <input type="file" id="import-settings-input" accept=".json" style="display:none" onchange="_leggiFileImpostazioni(this)">
+  <p style="margin-top:12px;text-align:center;color:#999;font-size:12px;">Claudio AAC — versione <span id="app-version-label"></span></p>
   </div>
 </div>
 
@@ -1424,6 +1431,8 @@ function loadSettings() { try { return JSON.parse(localStorage.getItem('aac_sett
 if (navigator.storage && navigator.storage.persist) {
   navigator.storage.persist(); // se concesso, i dati sopravvivono alla cancellazione massiva della cache
 }
+
+var APP_VERSION = '27';
 
 var _settingsModificati = false; // flag: impostazioni cambiate da quando è aperta la schermata settings
 
@@ -5675,14 +5684,31 @@ document.addEventListener('visibilitychange', function() {
 
 // ── SERVICE WORKER PER OFFLINE ──
 if ('serviceWorker' in navigator) {
-  // Forza aggiornamento: cancella vecchie cache e registra nuovo SW
-  if (navigator.serviceWorker.controller) {
-    caches.keys().then(function(ks) {
-      ks.forEach(function(k) { if (k !== 'claudio-aac-v19') caches.delete(k); });
-    });
-  }
+  // Mostra etichetta versione nelle impostazioni
+  var verEl = document.getElementById('app-version-label');
+  if (verEl) verEl.textContent = APP_VERSION;
+
+  // Quando il SW cambia (nuovo SW prende controllo) → mostra banner ricarica
+  navigator.serviceWorker.addEventListener('controllerchange', function() {
+    var banner = document.getElementById('sw-update-banner');
+    if (banner) banner.style.display = 'block';
+  });
+
   navigator.serviceWorker.register('./sw.js').then(function(reg) {
+    // Controlla subito se c'è un aggiornamento disponibile
     reg.update();
+    // Se arriva un nuovo SW in waiting, forza skipWaiting dopo che è pronto
+    reg.addEventListener('updatefound', function() {
+      var newSW = reg.installing;
+      if (!newSW) return;
+      newSW.addEventListener('statechange', function() {
+        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+          // Nuovo SW installato, il vecchio ancora attivo: mostra banner
+          var banner = document.getElementById('sw-update-banner');
+          if (banner) banner.style.display = 'block';
+        }
+      });
+    });
   }).catch(function() {});
 }
 </script>
