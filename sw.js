@@ -1,4 +1,4 @@
-var CACHE = 'claudio-aac-v27';
+var CACHE = 'claudio-aac-v28';
 
 self.addEventListener('install', function(e) {
   e.waitUntil(
