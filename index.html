@@ -482,8 +482,8 @@ h1 { font-size: 18px; font-weight: 600; color: #333; margin-bottom: 0; line-heig
 
 /* ── ANIMAZIONI AZIONI QUOTIDIANE ─────────────────────────────────────────── */
 @media(prefers-reduced-motion:reduce){.aac-well *,.aac-well *::before,.aac-well *::after{animation-duration:.01ms!important}}
-.img-anim-well{width:64px;height:64px;overflow:hidden;flex-shrink:0;position:relative}
-.aac-well{width:80px;height:80px;position:relative;transform:scale(0.8);transform-origin:top left}
+.img-anim-well{width:64px;height:64px;overflow:hidden;flex-shrink:0;position:relative;pointer-events:none}
+.aac-well{width:80px;height:80px;position:relative;transform:scale(0.8);transform-origin:top left;pointer-events:none}
 body.tablet-mode .img-anim-well{width:80px;height:80px}
 body.tablet-mode .aac-well{transform:scale(1)}
 .aac-anim{
@@ -1508,7 +1508,7 @@ if (navigator.storage && navigator.storage.persist) {
   navigator.storage.persist(); // se concesso, i dati sopravvivono alla cancellazione massiva della cache
 }
 
-var APP_VERSION = '30';
+var APP_VERSION = '31';
 
 var _settingsModificati = false; // flag: impostazioni cambiate da quando è aperta la schermata settings
 
@@ -2275,11 +2275,11 @@ function goHome() {
   _areaConfermaScanAttiva = 'area-conferma-scan';
   document.getElementById('area-conferma-scan').style.display = 'block';
   avviaScanGenerico('screen-home', '.home-scan-item', true);
-  // In phone mode annuncia le categorie disponibili all'arrivo in home
-  if (_deviceMode !== 'tablet' && _letturaScanAttiva()) {
+  // Annuncia le categorie disponibili all'arrivo in home (phone e tablet)
+  if (_letturaScanAttiva()) {
     var homeItems = document.querySelectorAll('#screen-home .home-scan-item');
     var nomi = Array.prototype.map.call(homeItems, function(el) {
-      return el.textContent.trim();
+      return _testoLeggibile(el) || el.textContent.trim();
     }).filter(Boolean).join(', ');
     if (nomi) _leggiTesto(nomi, null);
   }
@@ -2433,6 +2433,8 @@ function _imgBoxHtml(item, onclickAttr) {
   var visual;
   if (item.anim) {
     visual = _animWellHtml(item.anim);
+    // Hidden img for tablet scan overlay icon extraction
+    if (item.img) visual += '<img src="' + item.img + '" alt="" style="display:none;position:absolute;width:0;height:0;" aria-hidden="true">';
   }
   if (!visual) {
     visual = item.img
@@ -5825,6 +5827,14 @@ document.getElementById('img-dire-btn').src = IMG_DIRE;
 _areaConfermaScanAttiva = 'area-conferma-scan';
 document.getElementById('area-conferma-scan').style.display = 'block';
 avviaScanGenerico('screen-home', '.home-scan-item', true);
+// Annuncia la home screen all'avvio (come al ritorno in home)
+if (_letturaScanAttiva()) {
+  var _initHomeItems = document.querySelectorAll('#screen-home .home-scan-item');
+  var _initNomi = Array.prototype.map.call(_initHomeItems, function(el) {
+    return _testoLeggibile(el) || el.textContent.trim();
+  }).filter(Boolean).join(', ');
+  if (_initNomi) _leggiTesto(_initNomi, null);
+}
 
 // Inizializza modalità dispositivo
 _applicaModale();
