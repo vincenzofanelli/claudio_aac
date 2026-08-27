@@ -1508,7 +1508,7 @@ if (navigator.storage && navigator.storage.persist) {
   navigator.storage.persist(); // se concesso, i dati sopravvivono alla cancellazione massiva della cache
 }
 
-var APP_VERSION = '32';
+var APP_VERSION = '33';
 
 var _settingsModificati = false; // flag: impostazioni cambiate da quando è aperta la schermata settings
 
@@ -2271,20 +2271,11 @@ function goHome() {
   var rd = document.getElementById('result-display'); if (rd) rd.style.display = 'none';
   goalSet = false;
   renderStats();
-  // Avvia lo scan sui 3 bottoni principali (Voglio fare / Voglio dire / Immagini)
+  // Avvia lo scan sui bottoni home con lettura vocale abilitata (forceNoVoice=false):
+  // ogni elemento viene letto uno per volta con le pause normali del ciclo.
   _areaConfermaScanAttiva = 'area-conferma-scan';
   document.getElementById('area-conferma-scan').style.display = 'block';
-  avviaScanGenerico('screen-home', '.home-scan-item', true);
-  // In phone mode annuncia le categorie disponibili all'arrivo in home.
-  // In tablet mode lo scan overlay le mostra visivamente una per volta: TTS in blocco
-  // creerebbe conflitti con il touch — non leggiamo la lista.
-  if (_deviceMode !== 'tablet' && _letturaScanAttiva()) {
-    var homeItems = document.querySelectorAll('#screen-home .home-scan-item');
-    var nomi = Array.prototype.map.call(homeItems, function(el) {
-      return _testoLeggibile(el) || el.textContent.trim();
-    }).filter(Boolean).join(', ');
-    if (nomi) _leggiTesto(nomi, null);
-  }
+  avviaScanGenerico('screen-home', '.home-scan-item', false);
 }
 
 // ─── BACK BUTTON ANDROID ──────────────────────────────────────────────────────
@@ -5828,20 +5819,8 @@ document.getElementById('img-fare-btn').src = IMG_FARE;
 document.getElementById('img-dire-btn').src = IMG_DIRE;
 _areaConfermaScanAttiva = 'area-conferma-scan';
 document.getElementById('area-conferma-scan').style.display = 'block';
-avviaScanGenerico('screen-home', '.home-scan-item', true);
-// In phone mode: annuncia le voci home all'avvio dopo un breve ritardo
-// (lascia il tempo al browser di renderizzare le immagini prima di parlare).
-// In tablet mode: lo scan overlay gestisce il feedback visivo e audio
-// elemento per elemento — un TTS in blocco bloccherebbe il touch.
-if (_deviceMode !== 'tablet' && _letturaScanAttiva()) {
-  setTimeout(function() {
-    var _initHomeItems = document.querySelectorAll('#screen-home .home-scan-item');
-    var _initNomi = Array.prototype.map.call(_initHomeItems, function(el) {
-      return _testoLeggibile(el) || el.textContent.trim();
-    }).filter(Boolean).join(', ');
-    if (_initNomi) _leggiTesto(_initNomi, null);
-  }, 700);
-}
+// forceNoVoice=false: lo scan legge ogni elemento home uno per volta con pause normali
+avviaScanGenerico('screen-home', '.home-scan-item', false);
 
 // Inizializza modalità dispositivo
 _applicaModale();
